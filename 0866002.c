@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define CLIENT_SIZE (10 + 1) // server
+#define CLIENT_SIZE (10 + 1)	// server
 #define DATA_SIZE 1024
 #define FIELD_SIZE 200
 #define OUTPUT_STR_SIZE (4 + FIELD_SIZE + FIELD_SIZE * DATA_SIZE)
@@ -23,8 +23,26 @@ struct _linda_tuple
   linda_tuple *next;
 };
 
-linda_tuple bowls[CLIENT_SIZE];
-linda_tuple tuple_head;
+typedef struct _tuple_list tuple_list;
+struct _tuple_list
+{
+  linda_tuple *head;
+  linda_tuple *next;
+};
+
+typedef struct _linda_queue linda_queue;
+struct _linda_queue
+{
+  enum linda_action
+  { IN, READ } action[CLIENT_SIZE];
+  int ids[CLIENT_SIZE];
+  int head;
+  int tail;
+};
+
+linda_tuple *bowls[CLIENT_SIZE];
+linda_queue queue;
+tuple_list tuple_head;
 int terminate = 0;
 
 int
@@ -50,11 +68,42 @@ tuple_to_str (char *buf, linda_tuple *tuple)
 }
 
 void
+new_tuple ()
+{
+}
+
+void
+grab_tuple ()
+{
+}
+
+int
+queue_exist (int id)
+{
+}
+
+int
+queue_is_empty ()
+{
+}
+
+void
+queue_add (int id, enum linda_action action)
+{
+}
+
+void
+queue_get (int *id, enum linda_action *action)
+{
+}
+
+void
 server ()
 {
   char buf[OUTPUT_STR_SIZE];
   char cmd[CMD_SIZE];
   char *s;
+  char *action;
   int client_id;
   // parse command
   while (!terminate)
@@ -62,24 +111,29 @@ server ()
       fgets (cmd, CMD_SIZE, stdin);
       s = strtok (cmd, " ");
       client_id = strtol (s, NULL, 10);
+      if (queue_exist (client_id))
+	continue;
       s = strtok (NULL, " ");
-      if (!strcmp (s, "in"))
-	{
-	  // move tuple to bowl
-	}
-      else if (!strcmp (s, "out"))
-	{
-	  // new tuple
-	}
-      else if (!strcmp (s, "read"))
-	{
-	  // read tuple
-	}
+      action = s;
       while (s != NULL)
 	{
 	  printf ("%s\n", s);
 	  s = strtok (NULL, " ");
 	}
+      if (!strcmp (action, "in"))
+	{
+	  // move tuple to bowl
+	}
+      else if (!strcmp (action, "out"))
+	{
+	  // new tuple
+	  new_tuple ();
+	}
+      else if (!strcmp (action, "read"))
+	{
+	  // copy new tuple to bowl
+	}
+      grab_tuple ();
     }
 }
 
@@ -88,12 +142,22 @@ client (int id)
 {
   FILE *f;
   char buf[OUTPUT_STR_SIZE];
+  char filename[FIELD_SIZE];
   int len;
-  if (bowls[id].next == NULL)
-    return;
-  snprintf (buf, OUTPUT_STR_SIZE, "%d.txt", id);
-  f = fopen (buf, "a+");
-  len = tuple_to_str (buf, bowls[id].next);
+  linda_tuple *tuple;
+
+  snprintf (filename, FIELD_SIZE, "%d.txt", id);
+  f = fopen (filename, "a+");
+  while (!terminate)
+    {
+      if (bowls[id] == NULL)
+	continue;
+      tuple = bowls[id];
+      bowls[id] = NULL;
+      len = tuple_to_str (buf, tuple);
+      fwrite (buf, 1, len, f);
+      // remove tuple
+    }
   fclose (f);
 }
 
@@ -111,22 +175,22 @@ main (int argc, char *argv[])
   int id, nthreads;
   init ();
 #pragma omp parallel private(id)
-    {
-      id = omp_get_thread_num ();
-      printf ("Hello World from thread %d\n", id);
-      if (id == 0)
-	{
-	  server ();
-	}
-      else
-	{
-	  client (id);
-	}
+  {
+    id = omp_get_thread_num ();
+    printf ("Hello World from thread %d\n", id);
+    if (id == 0)
+      {
+	server ();
+      }
+    else
+      {
+	client (id);
+      }
 #pragma omp barrier
-      if (id == 0)
-	{
-	  nthreads = omp_get_num_threads ();
-	  printf ("There are %d threads\n", nthreads);
-	}
-    }
+    if (id == 0)
+      {
+	nthreads = omp_get_num_threads ();
+	printf ("There are %d threads\n", nthreads);
+      }
+  }
 }
