@@ -38,6 +38,7 @@ struct _linda_queue
   int ids[CLIENT_SIZE];
   int head;
   int tail;
+  linda_tuple *tuple[CLIENT_SIZE];
 };
 
 linda_tuple *bowls[CLIENT_SIZE];
@@ -67,33 +68,39 @@ tuple_to_str (char *buf, linda_tuple *tuple)
   return (buf - start);
 }
 
-void
+linda_tuple *
 new_tuple ()
 {
+  linda_tuple head;
+  linda_tuple *new;
+  char *s;
+
+  head.next = NULL;
+  new = &head;
+  s = strtok (NULL, " ");
+  while (s != NULL)
+    {
+      printf (":%s\n", s);
+      new->next = malloc (sizeof (linda_tuple));
+      new = new->next;
+      new->next = NULL;
+      if (s[0] == '"')
+	{
+	  new->type = STR;
+	  strcpy (new->data.buf, s);
+	}
+      else
+	{
+	  new->type = INT;
+	  new->data.num = atoi (s);
+	}
+      s = strtok (NULL, " ");
+    }
+  return head.next;
 }
 
 void
-grab_tuple ()
-{
-}
-
-int
-queue_exist (int id)
-{
-}
-
-int
-queue_is_empty ()
-{
-}
-
-void
-queue_add (int id, enum linda_action action)
-{
-}
-
-void
-queue_get (int *id, enum linda_action *action)
+queue_add (int id, enum linda_action action, linda_tuple *tuple)
 {
 }
 
@@ -105,33 +112,43 @@ server ()
   char *s;
   char *action;
   int client_id;
+  int len;
+  linda_tuple *tuple;
   // parse command
   while (!terminate)
     {
       fgets (cmd, CMD_SIZE, stdin);
+      len = strlen (cmd);
+      if (cmd[len - 1] == '\n')
+	cmd[len - 1] = '\0';
       s = strtok (cmd, " ");
+      if (!strcmp (s, "exit"))
+	{
+	  terminate = 1;
+	  return;
+	}
       client_id = strtol (s, NULL, 10);
       if (queue_exist (client_id))
 	continue;
       s = strtok (NULL, " ");
       action = s;
-      while (s != NULL)
-	{
-	  printf ("%s\n", s);
-	  s = strtok (NULL, " ");
-	}
+      tuple = new_tuple ();
+      tuple_to_str (buf, tuple);
+      printf ("%s\n", buf);
       if (!strcmp (action, "in"))
 	{
 	  // move tuple to bowl
+	  queue_add (client_id, IN, tuple);
 	}
       else if (!strcmp (action, "out"))
 	{
-	  // new tuple
-	  new_tuple ();
+	  // move new tuple to tuple list
+	  tuple_list_add (tuple);
 	}
       else if (!strcmp (action, "read"))
 	{
 	  // copy new tuple to bowl
+	  queue_add (client_id, READ, tuple);
 	}
       grab_tuple ();
     }
@@ -166,6 +183,7 @@ init ()
 {
   memset (bowls, 0, sizeof (bowls));
   memset (&tuple_head, 0, sizeof (tuple_head));
+  memset (&queue, 0, sizeof (queue));
   omp_set_num_threads (CLIENT_SIZE);
 }
 
