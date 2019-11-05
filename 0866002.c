@@ -333,11 +333,11 @@ client (int id)
   linda_tuple *tuple;
 
   snprintf (filename, FIELD_SIZE, "%d.txt", id);
-  f = fopen (filename, "a+");
   while (!terminate || bowls[id] != NULL)
     {
       if (bowls[id] == NULL)
 	continue;
+      f = fopen (filename, "a+");
       tuple = bowls[id];
       bowls[id] = NULL;
       len = tuple_to_str (buf, tuple);
@@ -345,8 +345,8 @@ client (int id)
       fwrite ("\n", 1, 1, f);
       // remove tuple
       tuple_remove (tuple);
+      fclose (f);
     }
-  fclose (f);
 }
 
 void
