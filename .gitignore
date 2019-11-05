@@ -4,3 +4,4 @@ peda*
 compile*
 .gdb*
 0866002
+*.o
