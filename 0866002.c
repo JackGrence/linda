@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include "lindavar.h"
 
-#define CLIENT_SIZE (10 + 1)	// server
+#define CLIENT_SIZE (1024)	// server
 #define DATA_SIZE 1024
 #define FIELD_SIZE 200
 #define OUTPUT_STR_SIZE (4 + FIELD_SIZE + FIELD_SIZE * DATA_SIZE)
@@ -88,10 +90,16 @@ new_tuple ()
 	  new->type = STR;
 	  strcpy (new->data.buf, s);
 	}
-      else
+      else if (s[0] == '?')
+	{
+	}
+      else if (isdigit (s[0]))
 	{
 	  new->type = INT;
 	  new->data.num = atoi (s);
+	}
+      else			/* linda variable */
+	{
 	}
       s = strtok (NULL, " ");
     }
@@ -291,6 +299,8 @@ server ()
       if (cmd[len - 1] == '\n')
 	cmd[len - 1] = '\0';
       s = strtok (cmd, " ");
+      if (s == NULL)
+	continue;
       if (!strcmp (s, "exit"))
 	{
 	  terminate = 1;
@@ -355,7 +365,6 @@ init ()
   memset (bowls, 0, sizeof (bowls));
   memset (&tuple_head, 0, sizeof (tuple_head));
   memset (&queue, 0, sizeof (queue));
-  omp_set_num_threads (CLIENT_SIZE);
 }
 
 int
@@ -363,6 +372,14 @@ main (int argc, char *argv[])
 {
   int id, nthreads;
   init ();
+  scanf ("%d", &nthreads);
+  nthreads++;
+  if (nthreads > CLIENT_SIZE)
+    {
+      fprintf (stderr, "Too large\n");
+      exit (-1);
+    }
+  omp_set_num_threads (nthreads);
 #pragma omp parallel private(id)
   {
     id = omp_get_thread_num ();
