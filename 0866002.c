@@ -122,6 +122,33 @@ queue_exist (int id)
 }
 
 void
+save_tuple ()
+{
+  FILE *f;
+  long pos;
+  char buf[OUTPUT_STR_SIZE];
+  int len;
+  tuple_list *p;
+
+  f = fopen ("server.txt", "w");
+  fwrite ("(", 1, 1, f);
+  p = tuple_head.next;
+  if (p != NULL)
+    {
+      len = tuple_to_str (buf, p->tuple);
+      fwrite (buf, 1, len, f);
+      for (p = p->next; p != NULL; p = p->next)
+	{
+	  len = tuple_to_str (buf, p->tuple);
+	  fwrite (",", 1, 1, f);
+	  fwrite (buf, 1, len, f);
+	}
+    }
+  fwrite (")\n", 1, 2, f);
+  fclose (f);
+}
+
+void
 tuple_list_add (linda_tuple *tuple)
 {
   tuple_list *p;
@@ -131,6 +158,7 @@ tuple_list_add (linda_tuple *tuple)
   p = p->next;
   p->next = NULL;
   p->tuple = tuple;
+  save_tuple ();
 }
 
 /* Return 0 or 1 if equal or not */
@@ -158,18 +186,23 @@ tuplecmp (linda_tuple *t1, linda_tuple *t2)
 }
 
 void
-tuple_list_remove (tuple_list *p)
+tuple_remove (linda_tuple *tuple)
 {
-  linda_tuple *tuple;
   linda_tuple *rm;
-  tuple = p->tuple;
   while (tuple != NULL)
     {
       rm = tuple;
       tuple = tuple->next;
       free (rm);
     }
+}
+
+void
+tuple_list_remove (tuple_list *p)
+{
+  tuple_remove (p->tuple);
   free (p);
+  save_tuple ();
 }
 
 void
@@ -309,7 +342,9 @@ client (int id)
       bowls[id] = NULL;
       len = tuple_to_str (buf, tuple);
       fwrite (buf, 1, len, f);
+      fwrite ("\n", 1, 1, f);
       // remove tuple
+      tuple_remove (tuple);
     }
   fclose (f);
 }
