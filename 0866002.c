@@ -26,8 +26,8 @@ struct _linda_tuple
 typedef struct _tuple_list tuple_list;
 struct _tuple_list
 {
-  linda_tuple *head;
-  linda_tuple *next;
+  linda_tuple *tuple;
+  tuple_list *next;
 };
 
 typedef struct _linda_queue linda_queue;
@@ -80,7 +80,6 @@ new_tuple ()
   s = strtok (NULL, " ");
   while (s != NULL)
     {
-      printf (":%s\n", s);
       new->next = malloc (sizeof (linda_tuple));
       new = new->next;
       new->next = NULL;
@@ -102,6 +101,143 @@ new_tuple ()
 void
 queue_add (int id, enum linda_action action, linda_tuple *tuple)
 {
+  queue.ids[queue.tail] = id;
+  queue.action[queue.tail] = action;
+  queue.tuple[queue.tail] = tuple;
+  queue.tail = (queue.tail + 1) % CLIENT_SIZE;
+}
+
+int
+queue_exist (int id)
+{
+  int i;
+  if (queue.head == queue.tail)
+    return 0;
+  for (i = queue.head; i != queue.tail; i = (i + 1) % CLIENT_SIZE)
+    {
+      if (queue.ids[i] == id)
+	return 1;
+    }
+  return 0;
+}
+
+void
+tuple_list_add (linda_tuple *tuple)
+{
+  tuple_list *p;
+  for (p = &tuple_head; p->next != NULL; p = p->next)
+    /* move to tail */ ;
+  p->next = malloc (sizeof (tuple_list));
+  p = p->next;
+  p->next = NULL;
+  p->tuple = tuple;
+}
+
+/* Return 0 or 1 if equal or not */
+int
+tuplecmp (linda_tuple *t1, linda_tuple *t2)
+{
+  while (t1->type == t2->type)
+    {
+      if (t1->type == INT)
+	{
+	  if (t1->data.num != t2->data.num)
+	    break;
+	}
+      else if (t1->type == STR)
+	{
+	  if (strcmp (t1->data.buf, t2->data.buf))
+	    break;
+	}
+      t1 = t1->next;
+      t2 = t2->next;
+      if (t1 == NULL && t2 == NULL)
+	return 0;
+    }
+  return 1;
+}
+
+void
+tuple_list_remove (tuple_list *p)
+{
+  linda_tuple *tuple;
+  linda_tuple *rm;
+  tuple = p->tuple;
+  while (tuple != NULL)
+    {
+      rm = tuple;
+      tuple = tuple->next;
+      free (rm);
+    }
+  free (p);
+}
+
+void
+queue_remove (int index)
+{
+  int cur;
+  int next;
+
+  cur = index;
+  next = (cur + 1) % CLIENT_SIZE;
+  while (next != queue.tail)
+    {
+      queue.action[cur] = queue.action[next];
+      queue.ids[cur] = queue.ids[next];
+      queue.tuple[cur] = queue.tuple[next];
+      cur = (cur + 1) % CLIENT_SIZE;
+      next = (cur + 1) % CLIENT_SIZE;
+    }
+  queue.tail--;
+  if (queue.tail < 0)
+    queue.tail += CLIENT_SIZE;
+}
+
+void
+grab_tuple ()
+{
+  int queue_index;
+  int found;
+  int index;
+  linda_tuple *tuple;
+  tuple_list *p;
+  tuple_list *rm;
+
+  queue_index = queue.head;
+  while (queue_index != queue.tail)
+    {
+      // search tuple
+      found = 0;
+      for (p = &tuple_head; p->next != NULL; p = p->next)
+	{
+	  if (!tuplecmp (p->next->tuple, queue.tuple[queue_index]))
+	    {
+	      found = 1;
+	      break;
+	    }
+	}
+      if (found)
+	{
+	  tuple = p->next->tuple;
+	  /* move tuple to bowls, the tuple will be freed by client */
+	  bowls[queue.ids[queue_index]] = queue.tuple[queue_index];
+	  if (queue.action[queue_index] == IN)
+	    {
+	      // remove the global tuple
+	      rm = p->next;
+	      p->next = rm->next;
+	      tuple_list_remove (rm);
+	    }
+	  else if (queue.action[queue_index] == READ)
+	    {
+	    }
+	  queue_remove (queue_index);
+	}
+      else
+	{
+	  queue_index = (queue_index + 1) % CLIENT_SIZE;
+	}
+    }
 }
 
 void
@@ -165,7 +301,7 @@ client (int id)
 
   snprintf (filename, FIELD_SIZE, "%d.txt", id);
   f = fopen (filename, "a+");
-  while (!terminate)
+  while (!terminate || bowls[id] != NULL)
     {
       if (bowls[id] == NULL)
 	continue;
