@@ -5,3 +5,5 @@ compile*
 .gdb*
 0866002
 *.o
+*.txt
+tags
