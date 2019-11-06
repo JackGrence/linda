@@ -34,7 +34,7 @@ new_tuple ()
 	{
 	  /* assign variable later */
 	  new->type = VAR;
-	  strcpy (new->data.buf, s);
+	  strcpy (new->data.buf, &s[1]);
 	}
       else if (isdigit (s[0]))
 	{
@@ -44,7 +44,7 @@ new_tuple ()
       else
 	{
 	  /* replace linda variable */
-	  //get_variable_value (s, new);
+	  get_variable_value (s, new);
 	}
       s = strtok (NULL, " ");
     }
@@ -129,8 +129,6 @@ server ()
       s = strtok (NULL, " ");
       action = s;
       tuple = new_tuple ();
-      tuple_to_str (buf, tuple);
-      printf ("%s\n", buf);
       if (!strcmp (action, "in"))
 	{
 	  // move tuple to bowl

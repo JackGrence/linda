@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lindatuple.h"
+#include "lindavar.h"
 
 void
 tuple_init ()
@@ -53,28 +54,51 @@ tuple_list_remove (tuple_list *p)
   save_tuple ();
 }
 
-/* Return 0 or 1 if equal or not */
+/* Return 0 or 1 if equal or not
+ * if t2 has VAR type, it will be ignored in compare,
+ * and replace the value when results are totally equal */
 int
 tuplecmp (linda_tuple *t1, linda_tuple *t2)
 {
-  while (t1->type == t2->type)
+  int not_equal;
+  linda_tuple *p1, *p2;
+
+  p1 = t1;
+  p2 = t2;
+  not_equal = 1;
+  while (p1->type == p2->type || p2->type == VAR)
     {
-      if (t1->type == INT)
+      if (p2->type == INT)
 	{
-	  if (t1->data.num != t2->data.num)
+	  if (p1->data.num != p2->data.num)
 	    break;
 	}
-      else if (t1->type == STR)
+      else if (p2->type == STR)
 	{
-	  if (strcmp (t1->data.buf, t2->data.buf))
+	  if (strcmp (p1->data.buf, p2->data.buf))
 	    break;
 	}
-      t1 = t1->next;
-      t2 = t2->next;
-      if (t1 == NULL && t2 == NULL)
-	return 0;
+      p1 = p1->next;
+      p2 = p2->next;
+      if (p1 == NULL && p2 == NULL)
+	{
+	  not_equal = 0;
+	  break;
+	}
     }
-  return 1;
+  if (!not_equal)
+    {
+      for (p1 = t1, p2 = t2; p1 != NULL; p1 = p1->next, p2 = p2->next)
+	{
+	  if (p2->type == VAR)
+	    {
+	      set_variable (p2->data.buf, p1);
+	      p2->type = p1->type;
+	      p2->data = p1->data;
+	    }
+	}
+    }
+  return not_equal;
 }
 
 void
