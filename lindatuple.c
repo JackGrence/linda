@@ -4,6 +4,8 @@
 #include "lindatuple.h"
 #include "lindavar.h"
 
+int dirty = 0;
+
 void
 tuple_init ()
 {
@@ -43,7 +45,7 @@ tuple_list_add (linda_tuple *tuple)
   p = p->next;
   p->next = NULL;
   p->tuple = tuple;
-  save_tuple ();
+  dirty = 1;
 }
 
 void
@@ -51,7 +53,7 @@ tuple_list_remove (tuple_list *p)
 {
   tuple_remove (p->tuple);
   free (p);
-  save_tuple ();
+  dirty = 1;
 }
 
 /* Return 0 or 1 if equal or not
@@ -160,13 +162,16 @@ queue_exist (int id)
 void
 save_tuple ()
 {
+  if (!dirty)
+    return;
+  dirty = 0;
   FILE *f;
   long pos;
   char buf[OUTPUT_STR_SIZE];
   int len;
   tuple_list *p;
 
-  f = fopen ("server.txt", "w");
+  f = fopen ("server.txt", "a");
   fwrite ("(", 1, 1, f);
   p = tuple_head.next;
   if (p != NULL)

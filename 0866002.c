@@ -147,6 +147,7 @@ server ()
 	  queue_add (client_id, READ, tuple);
 	}
       grab_tuple ();
+      save_tuple ();
     }
 }
 
