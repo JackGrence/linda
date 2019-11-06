@@ -78,6 +78,8 @@ grab_tuple ()
 	{
 	  tuple = p->next->tuple;
 	  /* move tuple to bowls, the tuple will be freed by client */
+	  while (bowls[queue.ids[queue_index]])
+	    /* wait */ ;
 	  bowls[queue.ids[queue_index]] = queue.tuple[queue_index];
 	  if (queue.action[queue_index] == IN)
 	    {
