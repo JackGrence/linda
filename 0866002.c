@@ -4,71 +4,11 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "lindavar.h"
+#include "lindatuple.h"
 
-#define CLIENT_SIZE (1024)	// server
-#define DATA_SIZE 1024
-#define FIELD_SIZE 200
-#define OUTPUT_STR_SIZE (4 + FIELD_SIZE + FIELD_SIZE * DATA_SIZE)
-#define CMD_SIZE (OUTPUT_STR_SIZE * 2)
-
-
-typedef struct _linda_tuple linda_tuple;
-struct _linda_tuple
-{
-  enum linda_types
-  { INT, STR } type;
-  union linda_data
-  {
-    char buf[DATA_SIZE];
-    int num;
-  } data;
-  linda_tuple *next;
-};
-
-typedef struct _tuple_list tuple_list;
-struct _tuple_list
-{
-  linda_tuple *tuple;
-  tuple_list *next;
-};
-
-typedef struct _linda_queue linda_queue;
-struct _linda_queue
-{
-  enum linda_action
-  { IN, READ } action[CLIENT_SIZE];
-  int ids[CLIENT_SIZE];
-  int head;
-  int tail;
-  linda_tuple *tuple[CLIENT_SIZE];
-};
 
 linda_tuple *bowls[CLIENT_SIZE];
-linda_queue queue;
-tuple_list tuple_head;
 int terminate = 0;
-
-int
-tuple_to_str (char *buf, linda_tuple *tuple)
-{
-  char *start = buf;
-  linda_tuple *p;
-  int len;
-  int round;
-
-  *buf++ = '(';
-  for (p = tuple, round = 0; p != NULL && round < FIELD_SIZE;
-       p = p->next, round++)
-    {
-      if (p->type == INT)
-	len = snprintf (buf, DATA_SIZE, "%d,", p->data.num);
-      else if (p->type == STR)
-	len = snprintf (buf, DATA_SIZE, "%s,", p->data.buf);
-      buf += len;
-    }
-  *(buf - 1) = ')';
-  return (buf - start);
-}
 
 linda_tuple *
 new_tuple ()
@@ -82,7 +22,7 @@ new_tuple ()
   s = strtok (NULL, " ");
   while (s != NULL)
     {
-      new->next = malloc (sizeof (linda_tuple));
+      new->next = malloc (sizeof (*new));
       new = new->next;
       new->next = NULL;
       if (s[0] == '"')
@@ -92,146 +32,23 @@ new_tuple ()
 	}
       else if (s[0] == '?')
 	{
+	  /* assign variable later */
+	  new->type = VAR;
+	  strcpy (new->data.buf, s);
 	}
       else if (isdigit (s[0]))
 	{
 	  new->type = INT;
 	  new->data.num = atoi (s);
 	}
-      else			/* linda variable */
+      else
 	{
+	  /* replace linda variable */
+	  //get_variable_value (s, new);
 	}
       s = strtok (NULL, " ");
     }
   return head.next;
-}
-
-void
-queue_add (int id, enum linda_action action, linda_tuple *tuple)
-{
-  queue.ids[queue.tail] = id;
-  queue.action[queue.tail] = action;
-  queue.tuple[queue.tail] = tuple;
-  queue.tail = (queue.tail + 1) % CLIENT_SIZE;
-}
-
-int
-queue_exist (int id)
-{
-  int i;
-  if (queue.head == queue.tail)
-    return 0;
-  for (i = queue.head; i != queue.tail; i = (i + 1) % CLIENT_SIZE)
-    {
-      if (queue.ids[i] == id)
-	return 1;
-    }
-  return 0;
-}
-
-void
-save_tuple ()
-{
-  FILE *f;
-  long pos;
-  char buf[OUTPUT_STR_SIZE];
-  int len;
-  tuple_list *p;
-
-  f = fopen ("server.txt", "w");
-  fwrite ("(", 1, 1, f);
-  p = tuple_head.next;
-  if (p != NULL)
-    {
-      len = tuple_to_str (buf, p->tuple);
-      fwrite (buf, 1, len, f);
-      for (p = p->next; p != NULL; p = p->next)
-	{
-	  len = tuple_to_str (buf, p->tuple);
-	  fwrite (",", 1, 1, f);
-	  fwrite (buf, 1, len, f);
-	}
-    }
-  fwrite (")\n", 1, 2, f);
-  fclose (f);
-}
-
-void
-tuple_list_add (linda_tuple *tuple)
-{
-  tuple_list *p;
-  for (p = &tuple_head; p->next != NULL; p = p->next)
-    /* move to tail */ ;
-  p->next = malloc (sizeof (tuple_list));
-  p = p->next;
-  p->next = NULL;
-  p->tuple = tuple;
-  save_tuple ();
-}
-
-/* Return 0 or 1 if equal or not */
-int
-tuplecmp (linda_tuple *t1, linda_tuple *t2)
-{
-  while (t1->type == t2->type)
-    {
-      if (t1->type == INT)
-	{
-	  if (t1->data.num != t2->data.num)
-	    break;
-	}
-      else if (t1->type == STR)
-	{
-	  if (strcmp (t1->data.buf, t2->data.buf))
-	    break;
-	}
-      t1 = t1->next;
-      t2 = t2->next;
-      if (t1 == NULL && t2 == NULL)
-	return 0;
-    }
-  return 1;
-}
-
-void
-tuple_remove (linda_tuple *tuple)
-{
-  linda_tuple *rm;
-  while (tuple != NULL)
-    {
-      rm = tuple;
-      tuple = tuple->next;
-      free (rm);
-    }
-}
-
-void
-tuple_list_remove (tuple_list *p)
-{
-  tuple_remove (p->tuple);
-  free (p);
-  save_tuple ();
-}
-
-void
-queue_remove (int index)
-{
-  int cur;
-  int next;
-
-  cur = index;
-  next = (cur + 1) % CLIENT_SIZE;
-  while (next != queue.tail)
-    {
-      queue.action[cur] = queue.action[next];
-      queue.ids[cur] = queue.ids[next];
-      queue.tuple[cur] = queue.tuple[next];
-      cur = (cur + 1) % CLIENT_SIZE;
-      next = (cur + 1) % CLIENT_SIZE;
-    }
-  queue.tail--;
-  if (queue.tail < 0)
-    queue.tail += CLIENT_SIZE;
 }
 
 void
@@ -363,8 +180,7 @@ void
 init ()
 {
   memset (bowls, 0, sizeof (bowls));
-  memset (&tuple_head, 0, sizeof (tuple_head));
-  memset (&queue, 0, sizeof (queue));
+  tuple_init ();
 }
 
 int
