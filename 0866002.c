@@ -201,7 +201,6 @@ main (int argc, char *argv[])
 #pragma omp parallel private(id)
   {
     id = omp_get_thread_num ();
-    printf ("Hello World from thread %d\n", id);
     if (id == 0)
       {
 	server ();
@@ -214,7 +213,6 @@ main (int argc, char *argv[])
     if (id == 0)
       {
 	nthreads = omp_get_num_threads ();
-	printf ("There are %d threads\n", nthreads);
       }
   }
 }
