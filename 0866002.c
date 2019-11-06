@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include "lindavar.h"
 #include "lindatuple.h"
+#include "version.h"
 
 
 linda_tuple *bowls[CLIENT_SIZE];
