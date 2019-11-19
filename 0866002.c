@@ -162,6 +162,8 @@ client (int id)
   linda_tuple *tuple;
 
   snprintf (filename, FIELD_SIZE, "%d.txt", id);
+  f = fopen (filename, "a+");
+  fclose (f);
   while (!terminate || bowls[id] != NULL)
     {
       if (bowls[id] == NULL)
@@ -189,6 +191,7 @@ int
 main (int argc, char *argv[])
 {
   int id, nthreads;
+  int i;
   init ();
   scanf ("%d", &nthreads);
   nthreads++;
